@@ -67,11 +67,13 @@ int main(int argc, char* argv[])
   bzero(buffer,256);
   std::fgets(buffer,255,stdin);
 
-  n = write(sockfd,buffer,strlen(buffer));
+  //n = write(sockfd,buffer,strlen(buffer));
+  n = send(sockfd, (char*)&buffer, strlen(buffer), 0);
   if(n < 0)
     error("ERROR: Error writing to socket");
   bzero(buffer,256);
-  n = read(sockfd,buffer,256);
+  //n = read(sockfd,buffer,256);
+  recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
   if(n < 0)
     error("ERROR: Error reading from socket");
 

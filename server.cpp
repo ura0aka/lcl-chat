@@ -7,6 +7,7 @@
 #include <string>
 #include <unistd.h>
 #include <time.h>
+#include <ctime>
 #include <chrono>
 #include <sys/types.h> // for data types in unix sys-calls 
 #include <sys/socket.h> // for structs that define sockets
@@ -21,7 +22,9 @@ struct sockaddr_in
   char    sin_zero[8]; // Not used, must be zero 
 };
 */
-void dostuff(int sockfd); 
+int bytes_read, bytes_written;
+
+void send_and_recieve(int sockfd); 
 
 void error(const char* message)
 {
@@ -62,6 +65,11 @@ int main(int argc, char* argv[])
 
   listen(sockfd, 5); // listen on socket for connections
   clilen = sizeof(cli_addr); // allocate memory for new address to connect with client
+
+  // calculate time
+  std::time_t now = std::time(0);
+  char* dt = std::ctime(&now);
+
   while(1)
   {
     newsockfd = accept(sockfd, (struct sockaddr*)&cli_addr, &clilen);
@@ -75,7 +83,10 @@ int main(int argc, char* argv[])
     if(pid == 0)
     {
       close(sockfd);
-      dostuff(newsockfd);
+      send_and_recieve(newsockfd);
+      std::cout << "***** Session *****"
+        << "\nBytes read: " << bytes_read << "B \n";
+      std::cout << dt << '\n';
       exit(0);
     }
     else close(newsockfd);
@@ -84,18 +95,20 @@ int main(int argc, char* argv[])
   return 0;
 }
 
-void dostuff(int sockfd)
+void send_and_recieve(int sockfd)
 {
   int n{};
   char buffer[256];
 
   // after client successfully connects to the server...
   bzero(buffer,256); // we initialize buffer
-  n = read(sockfd, buffer, 255); // read from the new file descriptor
+  //n = read(sockfd, buffer, 255); // read from the new file descriptor
+  bytes_read += recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
   if(n < 0)
     error("ERROR: Error reading from socket");
   std::cout << "Message: " << buffer << '\n';
-  n = write(sockfd, "Server: Got your message", 24);
+  n = send(sockfd, "Server: Got your message.", 24, 0);
+  //n = write(sockfd, "Server: Got your message", 24);
   if(n < 0)
     error("ERROR: Error writing to socket");
 }
