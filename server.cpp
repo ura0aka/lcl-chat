@@ -95,20 +95,28 @@ int main(int argc, char* argv[])
   return 0;
 }
 
+// recieve and send automatic response from server
 void send_and_recieve(int sockfd)
 {
-  int n{};
   char buffer[256];
+  while(1)
+  {
+    // after client successfully connects to the server...
+    bzero(buffer,256); // we initialize buffer
+    //n = read(sockfd, buffer, 255); // read from the new file descriptor
+    bytes_read += recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
+    if(!strcmp(buffer,"exit") || !strcmp(buffer,"Exit"))
+    {
+      std::cout << "Client has left the chat. \n";
+    }
+    if(bytes_read < 0)
+      error("ERROR: Error reading from socket");
+    std::cout << "Message: " << buffer << '\n';
 
-  // after client successfully connects to the server...
-  bzero(buffer,256); // we initialize buffer
-  //n = read(sockfd, buffer, 255); // read from the new file descriptor
-  bytes_read += recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
-  if(n < 0)
-    error("ERROR: Error reading from socket");
-  std::cout << "Message: " << buffer << '\n';
-  n = send(sockfd, "Server: Got your message.", 24, 0);
-  //n = write(sockfd, "Server: Got your message", 24);
-  if(n < 0)
-    error("ERROR: Error writing to socket");
+    bzero(buffer,256);
+    bytes_written = send(sockfd, (char*)&buffer , sizeof(buffer), 0);
+    //n = write(sockfd, "Server: Got your message", 24);
+    if(bytes_written < 0)
+      error("ERROR: Error writing to socket");
+  }
 }

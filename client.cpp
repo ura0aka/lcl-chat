@@ -62,29 +62,32 @@ int main(int argc, char* argv[])
   if(connect(sockfd,(struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0)
     error("ERROR: Error connecting to server");
   std::cout << "Connected successfully to the server \n";
-
+  
   while(1)
   {
     // reads message from stdin, writes message to socket, reads reply from socket
     std::cout << "> Enter your message: ";
-    bzero(buffer,256);
-    std::fgets(buffer,255,stdin);
-    
-    //n = write(sockfd,buffer,strlen(buffer));
-    n = send(sockfd, (char*)&buffer, strlen(buffer), 0);
+    std::string data{};
+    std::getline(std::cin, data);
+    memset(&buffer, 0, sizeof(buffer)); // clear buffer, initialize
+    strcpy(buffer, data.c_str());
+    if(data == "Exit" || data == "exit")
+    {
+      write(sockfd,buffer,strlen(buffer));
+      exit(0);
+      //break;
+    }
+    //bzero(buffer,256);
+    //std::fgets(buffer,255,stdin);
+    n = write(sockfd,buffer,strlen(buffer));
+    //n = send(sockfd, (char*)&buffer, strlen(buffer), 0);
     if(n < 0)
       error("ERROR: Error writing to socket");
-    else if(buffer == "exit" || buffer == "Exit")
-    {
-      std::cout << "Exited! \n";
-      break;
-    }
-    bzero(buffer,256);
-    //n = read(sockfd,buffer,256);
-    recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
+    // bzero(buffer,256);
+    n = read(sockfd,buffer,256);
+    //n = recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
     if(n < 0)
       error("ERROR: Error reading from socket");
-
     std::cout << buffer << '\n';
   }
 
