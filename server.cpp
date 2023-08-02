@@ -33,6 +33,31 @@ void error(const char* message)
   exit(1);
 }
 
+int socket_setup(char* args[])
+{
+  int sockfd, portno;
+  struct sockaddr_in serv_addr;
+
+  // create and open socket
+  sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  if(sockfd < 0)
+    error("ERROR: Error opening socket");
+  
+  // set fields in serv_addr
+  bzero((char*) &serv_addr, sizeof(serv_addr)); // initialize serv_addr buffer
+  portno = std::stoi(args[1]);
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_addr.s_addr = INADDR_ANY; // ip address of server
+  serv_addr.sin_port = htons(portno); // port number (in network byte order)
+  
+  if(bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
+    error("ERROR: Error on binding socket to local address"); // bind socket to local address
+
+  listen(sockfd, 5); // listen on socket for connections
+  
+  return sockfd;
+}
+
 int main(int argc, char* argv[])
 {
   // checks if the user entered the right number of arguments in cli
@@ -45,25 +70,8 @@ int main(int argc, char* argv[])
   socklen_t clilen; // size of the address of the client (needed to accept sys call)
   char buffer[256]; // server will read chars into this buffer from the socket connection
   struct sockaddr_in serv_addr, cli_addr; // structs containing internet address
-  int n;
-
-  // create and open socket
-  sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  std::cout << "socket: " << sockfd << '\n';
-  if(sockfd < 0)
-    error("ERROR: Error opening socket");
   
-  // set fields in serv_addr
-  bzero((char*) &serv_addr, sizeof(serv_addr)); // initialize serv_addr buffer
-  portno = std::stoi(argv[1]);
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_addr.s_addr = INADDR_ANY; // ip address of server
-  serv_addr.sin_port = htons(portno); // port number (in network byte order)
-  
-  if(bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
-    error("ERROR: Error on binding socket to local address"); // bind socket to local address
-
-  listen(sockfd, 5); // listen on socket for connections
+  sockfd = socket_setup(argv);
   clilen = sizeof(cli_addr); // allocate memory for new address to connect with client
 
   // calculate time
@@ -97,25 +105,25 @@ int main(int argc, char* argv[])
 
 // recieve and send automatic response from server
 void send_and_recieve(int sockfd)
-{
+{ 
   char buffer[256];
   while(1)
   {
     // after client successfully connects to the server...
     bzero(buffer,256); // we initialize buffer
-    //n = read(sockfd, buffer, 255); // read from the new file descriptor
+    //bytes_read = read(sockfd, buffer, 255); // read from the new file descriptor
     bytes_read += recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
     if(!strcmp(buffer,"exit") || !strcmp(buffer,"Exit"))
     {
       std::cout << "Client has left the chat. \n";
+      break;
     }
     if(bytes_read < 0)
       error("ERROR: Error reading from socket");
-    std::cout << "Message: " << buffer << '\n';
+    std::cout << "User<" << std::to_string(sockfd) <<"> | Message: " << buffer << '\n';
 
     bzero(buffer,256);
     bytes_written = send(sockfd, (char*)&buffer , sizeof(buffer), 0);
-    //n = write(sockfd, "Server: Got your message", 24);
     if(bytes_written < 0)
       error("ERROR: Error writing to socket");
   }
