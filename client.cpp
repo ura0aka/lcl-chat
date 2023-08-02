@@ -26,26 +26,19 @@ void error(const char* message)
   exit(1);
 }
 
-int main(int argc, char* argv[])
+int socket_setup(char* args[])
 {
-  int sockfd, portno, n;
+  int sockfd, portno;
   struct sockaddr_in serv_addr;
   struct hostent *server;
-
-  char buffer[256]; // chars to be written into from the socket connection
-  if(argc != 3) // we require ip address(hostname), port number in this order
-  {
-    std::cerr << "Usage: ip_address port" << argv[0] << '\n';
-    exit(0);
-  }
-
-  // create and open socket
-  portno = std::stoi(argv[2]);
+  
+    // create and open socket
+  portno = std::stoi(args[2]);
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockfd < 0)
     error("ERROR: Error opening socket \n");
 
-  server = gethostbyname(argv[1]);
+  server = gethostbyname(args[1]);
   if(server == NULL)
   {
     std::cerr << "ERROR: No such host found \n";
@@ -62,9 +55,16 @@ int main(int argc, char* argv[])
   if(connect(sockfd,(struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0)
     error("ERROR: Error connecting to server");
   std::cout << "Connected successfully to the server \n";
-  
+
+  return sockfd;
+}
+
+void send_message(int& sockfd)
+{
   while(1)
   {
+    int n;
+    char buffer[256];
     // reads message from stdin, writes message to socket, reads reply from socket
     std::cout << "> Enter your message: ";
     std::string data{};
@@ -74,22 +74,31 @@ int main(int argc, char* argv[])
     if(data == "Exit" || data == "exit")
     {
       write(sockfd,buffer,strlen(buffer));
-      exit(0);
-      //break;
+      break;
     }
-    //bzero(buffer,256);
-    //std::fgets(buffer,255,stdin);
+
     n = write(sockfd,buffer,strlen(buffer));
-    //n = send(sockfd, (char*)&buffer, strlen(buffer), 0);
     if(n < 0)
       error("ERROR: Error writing to socket");
-    // bzero(buffer,256);
-    n = read(sockfd,buffer,256);
-    //n = recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
-    if(n < 0)
-      error("ERROR: Error reading from socket");
-    std::cout << buffer << '\n';
   }
+
+}
+
+int main(int argc, char* argv[])
+{
+  int sockfd, portno, n;
+  struct sockaddr_in serv_addr;
+  struct hostent *server;
+
+  char buffer[256]; // chars to be written into from the socket connection
+  if(argc != 3) // we require ip address(hostname), port number in this order
+  {
+    std::cerr << "Usage: ip_address port" << argv[0] << '\n';
+    exit(0);
+  }
+
+  sockfd = socket_setup(argv);
+  send_message(sockfd);
 
   close(sockfd);
   return 0;
