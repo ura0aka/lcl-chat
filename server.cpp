@@ -24,7 +24,8 @@ struct sockaddr_in
 */
 int bytes_read, bytes_written;
 
-void send_and_recieve(int sockfd); 
+void send_and_recieve(int sockfd, std::string& usr);
+std::string client_username_recv(int sockfd);
 
 void error(const char* message)
 {
@@ -84,14 +85,15 @@ int main(int argc, char* argv[])
     if(newsockfd < 0)
       error("ERROR: Error accepting request from client");
     std::cout << "Client successfully connected \n";
-
+    std::string username = client_username_recv(newsockfd); // get username
+    
     pid = fork();
     if(pid < 0)
       error("ERROR: Error on fork");
     if(pid == 0)
     {
       close(sockfd);
-      send_and_recieve(newsockfd);
+      send_and_recieve(newsockfd,username);
       std::cout << "***** Session *****"
         << "\nBytes read: " << bytes_read << "B \n";
       std::cout << dt << '\n';
@@ -103,15 +105,31 @@ int main(int argc, char* argv[])
   return 0;
 }
 
+std::string client_username_recv(int sockfd)
+{
+  std::string username{};
+  int n{};
+  char buffer[256];
+  bzero(buffer,256);
+
+  n = recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
+  if(n < 0)
+    error("ERROR: Error reading from socket");
+  std::cout << "*Username recieved of new user: " << buffer << '\n';
+  username = buffer;
+
+  return username;
+}
+
 // recieve and send automatic response from server
-void send_and_recieve(int sockfd)
+void send_and_recieve(int sockfd, std::string& usr)
 { 
   char buffer[256];
   while(1)
   {
     // after client successfully connects to the server...
     bzero(buffer,256); // we initialize buffer
-    //bytes_read = read(sockfd, buffer, 255); // read from the new file descriptor
+    // read from the new file descriptor
     bytes_read += recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
     if(!strcmp(buffer,"exit") || !strcmp(buffer,"Exit"))
     {
@@ -120,7 +138,7 @@ void send_and_recieve(int sockfd)
     }
     if(bytes_read < 0)
       error("ERROR: Error reading from socket");
-    std::cout << "User<" << std::to_string(sockfd) <<"> | Message: " << buffer << '\n';
+    std::cout << "User<" << usr <<"> | Message: " << buffer << '\n';
 
     bzero(buffer,256);
     bytes_written = send(sockfd, (char*)&buffer , sizeof(buffer), 0);

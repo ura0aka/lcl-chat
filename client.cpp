@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -24,6 +25,11 @@ void error(const char* message)
 {
   std::perror(message);
   exit(1);
+}
+
+void clear_extraneous()
+{
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
 }
 
 int socket_setup(char* args[])
@@ -81,6 +87,19 @@ void send_message(int& sockfd)
     if(n < 0)
       error("ERROR: Error writing to socket");
   }
+}
+
+std::string username_setup()
+{
+  std::string username{};
+  std::cout << "Enter your username: ";
+  std::getline(std::cin, username);
+  if(std::cin.fail())
+  {
+    std::cin.clear();
+    clear_extraneous();
+  }
+  return username;
 
 }
 
@@ -96,8 +115,21 @@ int main(int argc, char* argv[])
     std::cerr << "Usage: ip_address port" << argv[0] << '\n';
     exit(0);
   }
-
+  
   sockfd = socket_setup(argv);
+  if(sockfd > 0)
+  {
+    // set up username after successful connection to the server
+    std::string username = username_setup();
+    int n{};
+    char buffer[256];
+    memset(&buffer, 0, sizeof(buffer));
+    strcpy(buffer, username.c_str());
+
+    n = write(sockfd,buffer,strlen(buffer)); // send the username of newly created user to server
+    if(n < 0)
+      error("ERROR: Error writing to socket");
+  }
   send_message(sockfd);
 
   close(sockfd);
