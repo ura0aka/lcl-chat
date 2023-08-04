@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <string>
+#include <array>
+#include <map>
 #include <unistd.h>
 #include <time.h>
 #include <ctime>
@@ -23,9 +25,18 @@ struct sockaddr_in
 };
 */
 int bytes_read, bytes_written;
+static int client_count = 0;
+// std::map<int,int> client_fdd {};
+std::array<int,5> client_fd {}; // can have up to five clients connected at a time 
+
 
 void send_and_recieve(int sockfd, std::string& usr);
 std::string client_username_recv(int sockfd);
+
+void clear_extraneous()
+{
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
+}
 
 void error(const char* message)
 {
@@ -34,10 +45,11 @@ void error(const char* message)
   exit(1);
 }
 
-int socket_setup(char* args[])
+int socket_setup(char* args[],std::array<int,5>& client_fd)
 {
   int sockfd, portno;
   struct sockaddr_in serv_addr;
+  ++ client_count;
 
   // create and open socket
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -55,8 +67,57 @@ int socket_setup(char* args[])
     error("ERROR: Error on binding socket to local address"); // bind socket to local address
 
   listen(sockfd, 5); // listen on socket for connections
-  
+ 
+  client_fd[client_count] = sockfd;
   return sockfd;
+}
+
+void server_query(std::array<int,5>& client_fd)
+{
+  std::string query{};
+  while(1)
+  {
+    std::cout << "server query: \n";
+    std::getline(std::cin,query);
+    if(query =="get clients")
+    {
+      if(client_fd.empty())
+        std::cout << "No clients connected \n";
+      else
+      {
+        int temp{};
+        std::cout << ">> Connected clients: ";
+        for(auto i : client_fd)
+        {
+          std::cout << "Client: " << i << '\n';
+          temp += 1 ;
+        }
+        std::cout << ">> Total: " << temp << '\n';
+      }  
+    }
+    else if(query == "terminate")
+    {
+      std::string option;
+      clear_extraneous();
+      std::cout << "Are you sure you want to terminate the program? (y/n): ";
+      std::cin >> option;
+      if(option == "y" || option == "Y")
+      {
+        exit(0);
+      }
+      else if(option == "n" || option == "N")
+      {
+        continue;
+      }
+      else
+        std::cout << "Error: Invalid option \n";
+    }
+    else
+    {
+      std::cout << "Invalid command. The following are the only valid commands:"
+        << "\n>> get clients" << "\n>> terminate";
+    }
+  }
 }
 
 int main(int argc, char* argv[])
@@ -72,7 +133,7 @@ int main(int argc, char* argv[])
   char buffer[256]; // server will read chars into this buffer from the socket connection
   struct sockaddr_in serv_addr, cli_addr; // structs containing internet address
   
-  sockfd = socket_setup(argv);
+  sockfd = socket_setup(argv,client_fd);
   clilen = sizeof(cli_addr); // allocate memory for new address to connect with client
 
   // calculate time
@@ -133,16 +194,17 @@ void send_and_recieve(int sockfd, std::string& usr)
     bytes_read += recv(sockfd, (char*)&buffer, sizeof(buffer), 0);
     if(!strcmp(buffer,"exit") || !strcmp(buffer,"Exit"))
     {
-      std::cout << "Client has left the chat. \n";
+      std::cout << "Client: " << usr << " has left the chat. \n";
       break;
     }
     if(bytes_read < 0)
       error("ERROR: Error reading from socket");
-    std::cout << "User<" << usr <<"> | Message: " << buffer << '\n';
+    std::cout << "User <" << usr <<"> | Message: " << buffer << '\n';
 
     bzero(buffer,256);
     bytes_written = send(sockfd, (char*)&buffer , sizeof(buffer), 0);
     if(bytes_written < 0)
       error("ERROR: Error writing to socket");
+    server_query(client_fd);
   }
 }
