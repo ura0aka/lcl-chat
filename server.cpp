@@ -7,6 +7,7 @@
 #include <string>
 #include <array>
 #include <map>
+#include <pthread.h>
 #include <unistd.h>
 #include <time.h>
 #include <ctime>
@@ -24,10 +25,13 @@ struct sockaddr_in
   char    sin_zero[8]; // Not used, must be zero 
 };
 */
+
+#define MAX_CONNECTIONS 10
 int bytes_read, bytes_written;
 static int client_count = 0;
 // std::map<int,int> client_fdd {};
 std::array<int,5> client_fd {}; // can have up to five clients connected at a time 
+pthread_mutex_t client_mutex[MAX_CONNECTIONS];
 
 
 void send_and_recieve(int sockfd, std::string& usr);
@@ -72,7 +76,8 @@ int socket_setup(char* args[],std::array<int,5>& client_fd)
   return sockfd;
 }
 
-void server_query(std::array<int,5>& client_fd)
+//void server_query(std::array<int,5>& client_fd)
+void* server_query(void* arg)
 {
   std::string query{};
   while(1)
@@ -135,6 +140,13 @@ int main(int argc, char* argv[])
   
   sockfd = socket_setup(argv,client_fd);
   clilen = sizeof(cli_addr); // allocate memory for new address to connect with client
+  
+  pthread_t th_server_query;
+  if( (pthread_create(&th_server_query,NULL,server_query,NULL)) !=0 )
+  {
+    perror("ERROR: Error creating thread for server query failed.");
+    exit(1);
+  }
 
   // calculate time
   std::time_t now = std::time(0);
@@ -205,6 +217,6 @@ void send_and_recieve(int sockfd, std::string& usr)
     bytes_written = send(sockfd, (char*)&buffer , sizeof(buffer), 0);
     if(bytes_written < 0)
       error("ERROR: Error writing to socket");
-    server_query(client_fd);
+    // server_query(client_fd);
   }
 }
