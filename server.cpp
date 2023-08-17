@@ -28,10 +28,10 @@ struct sockaddr_in
 */
 
 #define MAX_CONNECTIONS 10
+
 int bytes_read, bytes_written;
 static int client_count = 0;
-std::map<std::string,int> client_fd{};
-//std::vector<int> client_fd{};
+std::map<std::string,int&> client_fd{};
 pthread_mutex_t client_mutex[MAX_CONNECTIONS];
 
 
@@ -76,7 +76,7 @@ int socket_setup(char* args[])
   return sockfd;
 }
 
-//void server_query(std::array<int,5>& client_fd)
+
 void* server_query(void* arg)
 {
   std::string query{};
@@ -115,18 +115,22 @@ void* server_query(void* arg)
     {
       std::string temp_user{};
       std::getline(std::cin,temp_user);
+
+      int n;
       for(auto it = client_fd.cbegin(); it != client_fd.cend(); ++it)
       {
         if(temp_user==it->first)
         {
           // testing if we can find the user...
           std::cout << ">> kicking:" << it->first << " ... \n";
-
+          std::string kick_msg{"you are being kicked."};
+          int temp_sock = it->second;
+          n = send(temp_sock, (char*)&kick_msg, sizeof(kick_msg), 0);
+          if(n < 0)
+            error("ERROR: Error writing to socket.");
         }
-
       }
- 
-      
+      continue;
     }
     else
     {
@@ -152,8 +156,8 @@ int main(int argc, char* argv[])
   sockfd = socket_setup(argv);
   clilen = sizeof(cli_addr); // allocate memory for new address to connect with client
   
-  pthread_t th_server_query;
-  if( (pthread_create(&th_server_query,NULL,server_query,&client_fd)) !=0 )
+  pthread_t th_server_query;  
+  if( (pthread_create(&th_server_query,NULL,server_query,NULL)) !=0 )
   {
     error("ERROR: Error creating thread for server query.");
     exit(1);
@@ -170,21 +174,19 @@ int main(int argc, char* argv[])
       error("ERROR: Error accepting request from client");
     std::cout << "Client successfully connected \n";
     std::string username = client_username_recv(newsockfd); // get username
-    client_fd.insert(std::make_pair(username,newsockfd));
-
+    client_fd.insert(std::pair<std::string,int&>(username,sockfd));
+  
     for(auto it = client_fd.cbegin(); it != client_fd.cend(); ++it)
     {
       std::cout << ">> client name:<" << it->first 
         << ">|fd number:<" << it->second << ">\n";
     }
-
     
     pid = fork();
     if(pid < 0)
       error("ERROR: Error on fork");
     if(pid == 0)
     {
-      close(sockfd);
       send_and_recieve(newsockfd,username);
       std::cout << "***** Session *****"
         << "\nBytes read: " << bytes_read << "B \n";
