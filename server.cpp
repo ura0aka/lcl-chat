@@ -5,8 +5,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <string>
-#include <array>
+#include <vector>
 #include <map>
+#include <complex.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
@@ -29,8 +30,8 @@ struct sockaddr_in
 #define MAX_CONNECTIONS 10
 int bytes_read, bytes_written;
 static int client_count = 0;
-// std::map<int,int> client_fdd {};
-std::array<int,5> client_fd {}; // can have up to five clients connected at a time 
+std::map<std::string,int> client_fd{};
+//std::vector<int> client_fd{};
 pthread_mutex_t client_mutex[MAX_CONNECTIONS];
 
 
@@ -49,7 +50,7 @@ void error(const char* message)
   exit(1);
 }
 
-int socket_setup(char* args[],std::array<int,5>& client_fd)
+int socket_setup(char* args[])
 {
   int sockfd, portno;
   struct sockaddr_in serv_addr;
@@ -72,7 +73,6 @@ int socket_setup(char* args[],std::array<int,5>& client_fd)
 
   listen(sockfd, 5); // listen on socket for connections
  
-  client_fd[client_count] = sockfd;
   return sockfd;
 }
 
@@ -90,14 +90,8 @@ void* server_query(void* arg)
         std::cout << "No clients connected \n";
       else
       {
-        int temp{};
         std::cout << ">> Connected clients: ";
-        for(auto i : client_fd)
-        {
-          std::cout << "Client: " << i << '\n';
-          temp += 1 ;
-        }
-        std::cout << ">> Total: " << temp << '\n';
+        std::cout << ">> Total: " << client_count << '\n';
       }  
     }
     else if(query == "terminate")
@@ -138,13 +132,13 @@ int main(int argc, char* argv[])
   char buffer[256]; // server will read chars into this buffer from the socket connection
   struct sockaddr_in serv_addr, cli_addr; // structs containing internet address
   
-  sockfd = socket_setup(argv,client_fd);
+  sockfd = socket_setup(argv);
   clilen = sizeof(cli_addr); // allocate memory for new address to connect with client
   
   pthread_t th_server_query;
-  if( (pthread_create(&th_server_query,NULL,server_query,NULL)) !=0 )
+  if( (pthread_create(&th_server_query,NULL,server_query,&client_fd)) !=0 )
   {
-    perror("ERROR: Error creating thread for server query failed.");
+    error("ERROR: Error creating thread for server query.");
     exit(1);
   }
 
@@ -159,6 +153,12 @@ int main(int argc, char* argv[])
       error("ERROR: Error accepting request from client");
     std::cout << "Client successfully connected \n";
     std::string username = client_username_recv(newsockfd); // get username
+    client_fd.insert(std::make_pair(username,sockfd));
+    for(auto it = client_fd.cbegin(); it != client_fd.cend(); ++it)
+    {
+      std::cout << it->first << " " << it->second << '\n';
+    }
+
     
     pid = fork();
     if(pid < 0)
@@ -193,6 +193,7 @@ std::string client_username_recv(int sockfd)
 
   return username;
 }
+
 
 // recieve and send automatic response from server
 void send_and_recieve(int sockfd, std::string& usr)
