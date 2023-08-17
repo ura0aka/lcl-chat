@@ -97,7 +97,7 @@ void* server_query(void* arg)
     else if(query == "terminate")
     {
       std::string option;
-      clear_extraneous();
+      //clear_extraneous();
       std::cout << "Are you sure you want to terminate the program? (y/n): ";
       std::cin >> option;
       if(option == "y" || option == "Y")
@@ -110,6 +110,23 @@ void* server_query(void* arg)
       }
       else
         std::cout << "Error: Invalid option \n";
+    }
+    else if(query == "kick ")
+    {
+      std::string temp_user{};
+      std::getline(std::cin,temp_user);
+      for(auto it = client_fd.cbegin(); it != client_fd.cend(); ++it)
+      {
+        if(temp_user==it->first)
+        {
+          // testing if we can find the user...
+          std::cout << ">> kicking:" << it->first << " ... \n";
+
+        }
+
+      }
+ 
+      
     }
     else
     {
@@ -153,10 +170,12 @@ int main(int argc, char* argv[])
       error("ERROR: Error accepting request from client");
     std::cout << "Client successfully connected \n";
     std::string username = client_username_recv(newsockfd); // get username
-    client_fd.insert(std::make_pair(username,sockfd));
+    client_fd.insert(std::make_pair(username,newsockfd));
+
     for(auto it = client_fd.cbegin(); it != client_fd.cend(); ++it)
     {
-      std::cout << it->first << " " << it->second << '\n';
+      std::cout << ">> client name:<" << it->first 
+        << ">|fd number:<" << it->second << ">\n";
     }
 
     
