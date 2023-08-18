@@ -32,7 +32,8 @@ struct sockaddr_in
 int bytes_read, bytes_written;
 static int client_count = 0;
 std::map<std::string,int&> client_fd{};
-pthread_mutex_t client_mutex[MAX_CONNECTIONS];
+int status[MAX_CONNECTIONS];
+std::map<int,int> client_fd_map {}; // {[sockfd]->[index of array]}
 
 
 void send_and_recieve(int sockfd, std::string& usr);
@@ -43,12 +44,14 @@ void clear_extraneous()
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(),'\n');
 }
 
+
 void error(const char* message)
 {
   // used when a system call fails
   std::perror(message);
   exit(1);
 }
+
 
 int socket_setup(char* args[])
 {
@@ -82,34 +85,55 @@ void* server_query(void* arg)
   std::string query{};
   while(1)
   {
-    std::cout << "server query: \n";
     std::getline(std::cin,query);
+    // list clients connected to the server
     if(query =="get clients")
     {
       if(client_fd.empty())
         std::cout << "No clients connected \n";
       else
       {
-        std::cout << ">> Connected clients: ";
-        std::cout << ">> Total: " << client_count << '\n';
+        std::cout << ">> Connected clients: \n";
+        for(auto it = client_fd.begin(); it!=client_fd.end(); ++it)
+        {
+          std::cout << "client: " << it->first << " ";
+          if(status[it->second] == -1)
+            std::cout << "FREE \n";
+          else std::cout << "BUSY with client_" << status[it->second] << '\n'; 
+        }        
       }  
+    }
+    else if(query == "get free clients")
+    {
+      std::vector<int> free_clients{};
+      for(auto it{client_fd_map.begin()}; it != client_fd_map.end(); ++it)
+      {
+        if(status[it->second] == -1)
+          free_clients.push_back(it->first);
+      }
+      if(free_clients.empty())
+        std::cout << ">> no free clients \n";
+      else
+      {
+        for(auto x : free_clients)
+          std::cout << "client_" << x << '\n';
+      }
     }
     else if(query == "terminate")
     {
-      std::string option;
-      //clear_extraneous();
-      std::cout << "Are you sure you want to terminate the program? (y/n): ";
-      std::cin >> option;
-      if(option == "y" || option == "Y")
+      bool quit = false;
+      while(!quit)
       {
-        exit(0);
+        char option{};
+        std::cout << "Are you sure you want to terminate the program? (y/n): ";
+        std::cin >> option;
+        if(option == 'y' || option == 'Y')
+          exit(0);
+        else if(option == 'n' || option == 'N')
+          quit = true;
+        else
+          std::cout << "Error: Invalid option \n";
       }
-      else if(option == "n" || option == "N")
-      {
-        continue;
-      }
-      else
-        std::cout << "Error: Invalid option \n";
     }
     else if(query == "kick ")
     {
@@ -117,7 +141,7 @@ void* server_query(void* arg)
       std::getline(std::cin,temp_user);
 
       int n;
-      for(auto it = client_fd.cbegin(); it != client_fd.cend(); ++it)
+      for(auto it = client_fd.begin(); it != client_fd.end(); ++it)
       {
         if(temp_user==it->first)
         {
@@ -135,7 +159,7 @@ void* server_query(void* arg)
     else
     {
       std::cout << "Invalid command. The following are the only valid commands:"
-        << "\n>> get clients" << "\n>> terminate";
+        << "\n>> get clients" << "\n>> terminate" << "\n>> kick <client_name>" << "\n";
     }
   }
 }
